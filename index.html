@@ -3,39 +3,131 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GenAI Finance App</title>
+  <title>Screen and Weight</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <header class="app-header">
-    <h1>GenAI Finance App</h1>
-    <p class="subtitle">Template starting point</p>
+  <header class="top">
+    <div class="wrap">
+      <h1>screen<span class="dim">&amp;</span>weight</h1>
+      <p class="thesis">
+        Thesis: names with RSI below overbought and positive MACD momentum are the ones worth
+        holding. Weight the survivors by inverse volatility so the calmer names carry more.
+      </p>
+    </div>
   </header>
 
-  <main class="app-main">
+  <main class="wrap">
+
+    <!-- Step 1: the candidate universe and the settings ------------------- -->
     <section class="panel">
-      <form id="ticker-form">
-        <label for="ticker">Ticker</label>
-        <input id="ticker" name="ticker" type="text" placeholder="e.g. AAPL, MSFT, NVDA" required />
+      <h2>01 · Candidates and settings</h2>
 
-        <label for="twelvedata-key">Twelve Data API key</label>
-        <input id="twelvedata-key" name="twelvedata-key" type="password" placeholder="Twelve Data key" required />
-        <p class="field-hint">The free Twelve Data plan covers all US stocks and ETFs, limited to 8 requests/minute and 800/day. Get a free key at <a href="https://twelvedata.com/pricing" target="_blank" rel="noopener">twelvedata.com</a>.</p>
+      <div class="field full">
+        <label for="tickers">Candidate tickers</label>
+        <input id="tickers" type="text" value="msft, jnj, nvda, pg, cost, csco, nke, abbv" autocomplete="off" />
+        <p class="hint">Comma separated. Case and spacing do not matter. Up to sixteen; eight or fewer fit in one rate limit window.</p>
+      </div>
 
-        <label for="openrouter-key">OpenRouter API key</label>
-        <input id="openrouter-key" name="openrouter-key" type="password" placeholder="sk-or-..." required />
+      <div class="row">
+        <div class="field">
+          <label for="rsi-period">RSI period</label>
+          <input id="rsi-period" type="number" value="14" min="2" max="100" />
+        </div>
+        <div class="field">
+          <label for="macd-fast">MACD fast</label>
+          <input id="macd-fast" type="number" value="12" min="2" max="100" />
+        </div>
+        <div class="field">
+          <label for="macd-slow">MACD slow</label>
+          <input id="macd-slow" type="number" value="26" min="3" max="200" />
+        </div>
+        <div class="field">
+          <label for="macd-signal">MACD signal</label>
+          <input id="macd-signal" type="number" value="9" min="2" max="100" />
+        </div>
+        <div class="field">
+          <label for="data-key">Twelve Data key</label>
+          <input id="data-key" type="password" placeholder="price data" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="llm-key">Gemini key</label>
+          <input id="llm-key" type="password" placeholder="research note" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="llm-model">Model id</label>
+          <input id="llm-model" type="text" value="gemini-3.6-flash" />
+        </div>
+      </div>
 
-        <button type="submit">Analyze</button>
-      </form>
+      <p class="hint keys-note">
+        Keys are typed here, never written into the source. They live in this browser tab only.
+      </p>
+
+      <div class="actions">
+        <button id="run" type="button">Fetch and screen</button>
+      </div>
+      <p id="status" class="status">Nothing fetched yet.</p>
+      <div id="log" class="log"></div>
     </section>
 
-    <section class="panel" id="results">
-      <p class="placeholder">Results will appear here once you wire up data fetching and your LLM call.</p>
+    <!-- Step 4: the screen rules, adjustable ------------------------------ -->
+    <section class="panel" id="rules-panel" hidden>
+      <h2>02 · Screen rules</h2>
+      <p class="hint">
+        Both conditions must hold. Move either threshold and the survivor list changes immediately,
+        with no new data request.
+      </p>
+      <div class="row rules">
+        <div class="field">
+          <label for="rsi-max">Keep if RSI is below</label>
+          <input id="rsi-max" type="number" value="70" min="1" max="100" />
+        </div>
+        <div class="field">
+          <label for="macd-min">Keep if MACD histogram is above</label>
+          <input id="macd-min" type="number" value="0" step="0.05" />
+        </div>
+      </div>
+      <div id="rule-summary" class="rule-summary"></div>
     </section>
+
+    <!-- Step 3: per ticker signals ---------------------------------------- -->
+    <section class="panel" id="signals-panel" hidden>
+      <h2>03 · Signals per candidate</h2>
+      <p class="hint">Every value below is computed in this browser. Sparkline shows the last 60 closes.</p>
+      <div id="signals-table"></div>
+    </section>
+
+    <!-- Step 5 and 6: weights -------------------------------------------- -->
+    <section class="panel" id="weights-panel" hidden>
+      <h2>04 · Inverse volatility weights</h2>
+      <p class="hint">
+        Weight proportional to one divided by annualised volatility, then normalised to sum to one.
+        A quieter stock therefore carries more of the portfolio.
+      </p>
+      <div id="weights-summary" class="rule-summary"></div>
+      <div id="weights-chart"></div>
+      <div id="weights-table"></div>
+    </section>
+
+    <!-- Step 6: the note -------------------------------------------------- -->
+    <section class="panel" id="note-panel" hidden>
+      <h2>05 · Research note</h2>
+      <button id="write-note" type="button">Write the note</button>
+      <p class="ai-flag">
+        Generated text, unverified. Every figure was computed in JavaScript before the model saw it.
+        The model writes language, not arithmetic.
+      </p>
+      <div id="note"></div>
+    </section>
+
   </main>
 
-  <footer class="app-footer">
-    <p>Replace this scaffold with your own build. See README.md for setup notes.</p>
+  <footer class="wrap">
+    <p>
+      Repo 2, Generative AI in Finance, WU Executive Academy. Coursework prototype.
+      Not investment advice. No orders are placed.
+    </p>
   </footer>
 
   <script type="module" src="./main.js"></script>
